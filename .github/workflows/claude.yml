@@ -1,0 +1,118 @@
+name: Claude Code
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ── App setup ──────────────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Start FastAPI server
+        run: |
+          nohup uvicorn main:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
+          echo "Waiting for server to be ready..."
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000 > /dev/null && echo "Server ready." && break
+            sleep 1
+          done
+
+      # ── Playwright MCP setup ───────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright MCP and Chromium
+        run: |
+          npm install -g @playwright/mcp@latest
+          npx playwright install chromium --with-deps
+
+      # ── Claude ────────────────────────────────────────────────────────────
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          additional_permissions: |
+            actions: read
+
+          # Expose the Playwright MCP server so Claude can drive a browser
+          mcp_config: |
+            {
+              "mcpServers": {
+                "playwright": {
+                  "command": "npx",
+                  "args": ["@playwright/mcp@latest", "--headless"]
+                }
+              }
+            }
+
+          # Allow Claude to use Bash + every Playwright browser tool
+          allowed_tools: |
+            Bash
+            mcp__playwright__browser_navigate
+            mcp__playwright__browser_screenshot
+            mcp__playwright__browser_click
+            mcp__playwright__browser_type
+            mcp__playwright__browser_wait_for
+            mcp__playwright__browser_get_text
+            mcp__playwright__browser_get_html
+            mcp__playwright__browser_evaluate
+            mcp__playwright__browser_close
+            mcp__playwright__browser_go_back
+            mcp__playwright__browser_go_forward
+            mcp__playwright__browser_reload
+            mcp__playwright__browser_resize
+            mcp__playwright__browser_hover
+            mcp__playwright__browser_press_key
+            mcp__playwright__browser_scroll
+            mcp__playwright__browser_select_option
+            mcp__playwright__browser_check
+            mcp__playwright__browser_focus
+            mcp__playwright__browser_drag
+            mcp__playwright__browser_tab_new
+            mcp__playwright__browser_tab_list
+            mcp__playwright__browser_tab_select
+            mcp__playwright__browser_tab_close
+
+          # Ground Claude in where the running app lives
+          system_prompt: |
+            The StreakBoard FastAPI app is running at http://localhost:8000.
+            When asked to inspect, test, or demonstrate something in the browser,
+            use the Playwright MCP tools to navigate to http://localhost:8000 and
+            interact with the live app. Take screenshots to share visual evidence.
+            Post your findings as a comment on the issue or pull request.
