@@ -438,6 +438,21 @@ async function loadSixMonthChart() {
   }
 }
 
+// ── Clear all data ────────────────────────────────────────────────────────
+
+async function clearAllData() {
+  if (!confirm('This will permanently delete ALL sections, habits, and check-in history.\n\nThis cannot be undone. Continue?')) return;
+  if (!confirm('Last chance — delete everything?')) return;
+  try {
+    await api('DELETE', '/api/clear');
+    dashData = null;
+    loadDashboard();
+    showToast('All data cleared.');
+  } catch {
+    showToast('Could not clear data.');
+  }
+}
+
 // ── Chatbot ────────────────────────────────────────────────────────────────
 
 function toggleChat() {

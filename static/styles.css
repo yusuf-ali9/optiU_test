@@ -398,6 +398,27 @@ body {
   box-shadow: 0 0 20px var(--glow-p);
 }
 
+/* ── Clear all button ────────────────────────────────────────────── */
+.clear-all-btn {
+  display: block;
+  width: 100%;
+  padding: 12px 22px;
+  background: transparent;
+  border: 1px solid rgba(244,63,94,0.35);
+  border-radius: 12px;
+  color: #f43f5e;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 32px;
+  transition: all var(--ease);
+  letter-spacing: 0.03em;
+}
+.clear-all-btn:hover {
+  background: rgba(244,63,94,0.08);
+  border-color: #f43f5e;
+  box-shadow: 0 0 16px rgba(244,63,94,0.25);
+}
+
 /* ── Weekly panel ─────────────────────────────────────────────────── */
 .weekly-panel { margin-top: 40px; }
 .panel-title {

@@ -5,12 +5,15 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-DB_PATH = Path("streakboard.db")
+load_dotenv()
+
+DB_PATH = Path(__file__).parent / "streakboard.db"
 
 app = FastAPI(title="StreakBoard")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -508,6 +511,18 @@ def chat(body: ChatMessage):
         max_tokens=512,
     )
     return {"reply": completion.choices[0].message.content}
+
+
+# ---------------------------------------------------------------------------
+# Routes — Clear all data
+# ---------------------------------------------------------------------------
+
+@app.delete("/api/clear", status_code=204)
+def clear_all():
+    with get_db() as db:
+        db.execute("DELETE FROM checkins")
+        db.execute("DELETE FROM trackables")
+        db.execute("DELETE FROM sections")
 
 
 # ---------------------------------------------------------------------------
